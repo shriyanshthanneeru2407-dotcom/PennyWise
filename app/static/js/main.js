@@ -14,15 +14,78 @@
 (function () {
     "use strict";
 
-    // ---- Dark Mode ----
-    function applyTheme(theme) {
+    // ---- Dark / Light Mode ----
+    function applyTheme(theme, syncWithServer = false) {
+        if (!theme || (theme !== "light" && theme !== "dark")) {
+            theme = "dark";
+        }
         document.documentElement.setAttribute("data-theme", theme);
-        localStorage.setItem("theme", theme);
+        if (document.body) {
+            document.body.setAttribute("data-theme", theme);
+            document.body.dataset.theme = theme;
+        }
+        try {
+            localStorage.setItem("theme", theme);
+        } catch (e) {}
+
+        updateThemeIcons(theme);
+
+        // Notify charts and other reactive components
+        window.dispatchEvent(new CustomEvent("themechanged", { detail: { theme } }));
+
+        // Asynchronously persist to user preferences in DB if authenticated
+        if (syncWithServer && document.body && document.body.dataset.authenticated === "true") {
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrfInput = document.querySelector('input[name="csrf_token"]');
+            const token = csrfMeta ? csrfMeta.getAttribute("content") : (csrfInput ? csrfInput.value : "");
+
+            fetch("/settings/theme", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": token || "",
+                },
+                body: JSON.stringify({ theme: theme }),
+            }).catch(() => {});
+        }
     }
 
-    // Default to dark theme matching the logo
-    const savedTheme = localStorage.getItem("theme") || "dark";
-    applyTheme(savedTheme);
+    function updateThemeIcons(theme) {
+        const isDark = theme === "dark";
+        // Show Sun in dark mode (click for light), Moon in light mode (click for dark)
+        const iconChar = isDark ? "☀️" : "🌙";
+        const label = isDark ? "Switch to light mode" : "Switch to dark mode";
+
+        document.querySelectorAll("#themeToggle, .theme-toggle, [data-action='toggle-theme']").forEach((btn) => {
+            const iconEl = btn.querySelector(".theme-icon");
+            if (iconEl) {
+                iconEl.textContent = iconChar;
+            } else {
+                btn.textContent = iconChar;
+            }
+            btn.setAttribute("title", label);
+            btn.setAttribute("aria-label", label);
+        });
+
+        const themeSelect = document.getElementById("theme");
+        if (themeSelect && themeSelect.tagName === "SELECT") {
+            themeSelect.value = theme;
+        }
+    }
+
+    function toggleTheme() {
+        const current = document.documentElement.getAttribute("data-theme") || "dark";
+        const next = current === "dark" ? "light" : "dark";
+        applyTheme(next, true);
+    }
+
+    // Default theme initialization: prioritize localStorage, then server attribute, default dark
+    try {
+        const storedTheme = localStorage.getItem("theme");
+        const docTheme = document.documentElement.getAttribute("data-theme");
+        const initialTheme = storedTheme || docTheme || "dark";
+        applyTheme(initialTheme, false);
+    } catch (e) {}
 
     // ---- Sidebar toggle (mobile) ----
     function initSidebar() {
@@ -177,23 +240,14 @@
         });
     }
 
-    // ---- Theme toggle ----
+    // ---- Theme toggle setup ----
     function initThemeToggle() {
-        const toggleBtn = document.getElementById("themeToggle");
-        if (!toggleBtn) return;
-
-        toggleBtn.addEventListener("click", () => {
-            const current = document.documentElement.getAttribute("data-theme");
-            const next = current === "dark" ? "light" : "dark";
-            applyTheme(next);
-            // Update icon
-            updateThemeIcon(next);
+        document.querySelectorAll("#themeToggle, .theme-toggle, [data-action='toggle-theme']").forEach((btn) => {
+            btn.onclick = (e) => {
+                e.preventDefault();
+                toggleTheme();
+            };
         });
-    }
-
-    function updateThemeIcon(theme) {
-        const icon = document.querySelector("#themeToggle .theme-icon");
-        if (icon) icon.textContent = theme === "dark" ? "☀️" : "🌙";
     }
 
     // ---- File input preview ----
@@ -328,8 +382,7 @@
 
         if (themeBtn) {
             themeBtn.addEventListener("click", () => {
-                const toggle = document.getElementById("themeToggle");
-                if (toggle) toggle.click();
+                toggleTheme();
                 closePalette();
             });
         }
@@ -378,8 +431,7 @@
                 } else if (k === "p") {
                     window.location.href = "/reports";
                 } else if (k === "u") {
-                    const toggle = document.getElementById("themeToggle");
-                    if (toggle) toggle.click();
+                    toggleTheme();
                 }
             }
         });
@@ -408,10 +460,8 @@
         initCommandPalette();
         initNetworkStatus();
 
-        // Apply theme from body attribute (set by Jinja from user preference)
-        const bodyTheme = document.body.dataset.theme;
-        if (bodyTheme) applyTheme(bodyTheme);
-        updateThemeIcon(document.documentElement.getAttribute("data-theme") || "dark");
+        // Ensure all theme icons across the DOM are in sync with active theme
+        updateThemeIcons(document.documentElement.getAttribute("data-theme") || "dark");
 
         // Register Service Worker for PWA installability
         if ("serviceWorker" in navigator && window.location.protocol === "https:") {

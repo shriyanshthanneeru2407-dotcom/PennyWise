@@ -274,3 +274,37 @@ class TestEmailVerification:
         resp = client.get("/auth/verify-email/completely-bogus-token", follow_redirects=True)
         assert resp.status_code == 200
         assert b"expired or is invalid" in resp.data
+
+
+class TestThemeToggle:
+    def test_theme_toggle_endpoint(self, client, app):
+        """User can toggle theme via /settings/theme JSON API."""
+        with app.app_context():
+            user = User(name="Theme User", email="theme@example.com", theme="dark")
+            user.set_password("pass1234")
+            db.session.add(user)
+            db.session.commit()
+
+        login(client, "theme@example.com", "pass1234")
+
+        # Switch to light
+        resp = client.post("/settings/theme", json={"theme": "light"})
+        assert resp.status_code == 200
+        assert resp.get_json()["theme"] == "light"
+
+        with app.app_context():
+            u = User.query.filter_by(email="theme@example.com").first()
+            assert u.theme == "light"
+
+        # Switch to dark
+        resp = client.post("/settings/theme", json={"theme": "dark"})
+        assert resp.status_code == 200
+        assert resp.get_json()["theme"] == "dark"
+
+        with app.app_context():
+            u = User.query.filter_by(email="theme@example.com").first()
+            assert u.theme == "dark"
+
+        # Invalid theme rejected
+        resp = client.post("/settings/theme", json={"theme": "invalid-theme"})
+        assert resp.status_code == 400

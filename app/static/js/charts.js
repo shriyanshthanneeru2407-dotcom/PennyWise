@@ -59,6 +59,7 @@
                 return;
             }
 
+            if (Chart.getChart(canvas)) Chart.getChart(canvas).destroy();
             new Chart(canvas, {
                 type: "doughnut",
                 data: {
@@ -113,6 +114,7 @@
 
             const primaryColor = getCssVar("--primary");
 
+            if (Chart.getChart(canvas)) Chart.getChart(canvas).destroy();
             new Chart(canvas, {
                 type: "line",
                 data: {
@@ -183,6 +185,7 @@
 
             const primaryColor = getCssVar("--primary");
 
+            if (Chart.getChart(canvas)) Chart.getChart(canvas).destroy();
             new Chart(canvas, {
                 type: "bar",
                 data: {
@@ -253,6 +256,7 @@
                 return;
             }
 
+            if (Chart.getChart(canvas)) Chart.getChart(canvas).destroy();
             new Chart(canvas, {
                 type: "doughnut",
                 data: {
@@ -366,12 +370,21 @@
         parent.appendChild(el);
     }
 
-    // ---- Init ----
-    document.addEventListener("DOMContentLoaded", () => {
+    function renderAllCharts() {
         initCategoryChart();
         initDailyChart();
         initMonthlyChart();
         initInsightsCategoryChart();
         initMonthlyBarChart();
+    }
+
+    // ---- Init ----
+    document.addEventListener("DOMContentLoaded", () => {
+        renderAllCharts();
+    });
+
+    // Re-render when dark/light mode toggles so colors and axes match the theme
+    window.addEventListener("themechanged", () => {
+        renderAllCharts();
     });
 })();

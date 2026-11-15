@@ -24,10 +24,23 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PennyWise">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Immediate theme initialization to prevent Flash of Unstyled Content (FOUC) -->
+    <script>
+        (function() {
+            try {
+                var local = localStorage.getItem("theme");
+                var server = "{{ current_user.theme if (current_user.is_authenticated and current_user.theme) else '' }}";
+                var t = local || server || "dark";
+                document.documentElement.setAttribute("data-theme", t);
+            } catch(e) {}
+        })();
+    </script>
 
     {% block head %}{% endblock %}
 </head>
-<body data-theme="{{ current_user.theme if (current_user.is_authenticated and current_user.theme) else 'dark' }}">
+<body data-theme="{{ current_user.theme if (current_user.is_authenticated and current_user.theme) else 'dark' }}" data-authenticated="{{ 'true' if current_user.is_authenticated else 'false' }}">
 
 {% if current_user.is_authenticated %}
 <!-- ============================================================
@@ -156,8 +169,8 @@
             </button>
 
             <!-- Theme toggle -->
-            <button id="themeToggle" class="btn btn-ghost btn-sm" aria-label="Toggle dark mode" title="Toggle dark mode">
-                <span class="theme-icon">🌙</span>
+            <button id="themeToggle" class="btn btn-ghost btn-sm theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+                <span class="theme-icon">☀️</span>
             </button>
 
             <!-- User dropdown -->
@@ -248,6 +261,13 @@
 
 {% else %}
 <!-- UNAUTHENTICATED LAYOUT -->
+{% if request.endpoint != 'main.index' %}
+<div style="position:fixed;top:1rem;right:1.5rem;z-index:999;">
+    <button type="button" class="btn btn-ghost btn-sm theme-toggle" aria-label="Toggle theme" title="Toggle theme" style="border:1px solid var(--border);border-radius:8px;background:var(--surface);box-shadow:var(--shadow-sm);padding:0.4rem 0.65rem;display:inline-flex;align-items:center;justify-content:center;">
+        <span class="theme-icon">☀️</span>
+    </button>
+</div>
+{% endif %}
 {% with messages = get_flashed_messages(with_categories=True) %}
     {% if messages %}
         <div style="padding: 1rem; max-width: 500px; margin: 0 auto;">

@@ -4,7 +4,7 @@
    ============================================================ */
 
 /* --- 1. CSS Custom Properties (Design Tokens) --- */
-:root {
+:root, [data-theme="dark"] {
     /* Brand — Neon Emerald / Mint (matches logo) */
     --primary: #00e676;
     --primary-hover: #00c853;
@@ -79,7 +79,18 @@
     --text-light: #839b8d;
     --border: #d2e4da;
     --border-subtle: #e2ede6;
+    --border-focus: #00b359;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.10);
     --glow: 0 4px 16px rgba(0, 179, 89, 0.15);
+    --glow-strong: 0 6px 24px rgba(0, 179, 89, 0.25);
+}
+
+[data-theme="light"] .hero-logo-halo {
+    opacity: 0.45;
+    filter: blur(12px);
 }
 
 /* --- 2. Reset & Base --- */

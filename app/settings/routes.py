@@ -14,7 +14,7 @@ import json
 import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from flask import Blueprint, render_template, redirect, url_for, flash, request, Response
+from flask import Blueprint, render_template, redirect, url_for, flash, request, Response, jsonify
 from flask_login import login_required, current_user, logout_user
 from sqlalchemy import or_
 from app import db
@@ -196,6 +196,19 @@ def update_preferences():
     db.session.commit()
     flash("Preferences updated.", "success")
     return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/theme", methods=["POST"])
+@login_required
+def update_theme():
+    """Asynchronous endpoint to persist theme toggle instantly."""
+    data = request.get_json(silent=True) or {}
+    theme = (data.get("theme") or request.form.get("theme", "")).strip().lower()
+    if theme in SUPPORTED_THEMES:
+        current_user.theme = theme
+        db.session.commit()
+        return jsonify({"success": True, "theme": theme})
+    return jsonify({"error": "Invalid theme"}), 400
 
 
 @settings_bp.route("/export/expenses.csv")
