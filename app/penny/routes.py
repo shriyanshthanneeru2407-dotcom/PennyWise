@@ -145,10 +145,25 @@ def _get_gemini_response(user_message: str, context: str, user_name: str) -> str
         import google.generativeai as genai
 
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=PENNY_SYSTEM_PROMPT.format(context=context),
-        )
+        
+        # Try contemporary Gemini models in preference order
+        model = None
+        for candidate in ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"]:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=candidate,
+                    system_instruction=PENNY_SYSTEM_PROMPT.format(context=context),
+                )
+                break
+            except Exception:
+                continue
+
+        if not model:
+            model = genai.GenerativeModel(
+                model_name="gemini-3.8-flash",
+                system_instruction=PENNY_SYSTEM_PROMPT.format(context=context),
+            )
+
         response = model.generate_content(
             user_message,
             generation_config=genai.types.GenerationConfig(
@@ -161,9 +176,7 @@ def _get_gemini_response(user_message: str, context: str, user_name: str) -> str
         return _smart_fallback(user_message, context, user_name)
     except Exception as e:
         error_msg = str(e)
-        if "API_KEY" in error_msg.upper() or "INVALID" in error_msg.upper():
-            return _smart_fallback(user_message, context, user_name)
-        return f"🤔 I ran into a small hiccup. Please try again in a moment! (Error: {error_msg[:80]})"
+        return _smart_fallback(user_message, context, user_name)
 
 
 @penny_bp.route("/")
