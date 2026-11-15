@@ -395,6 +395,166 @@
         });
     }
 
+    // ---- Penny AI Floating Widget ----
+    function initPennyFloatingWidget() {
+        const btn = document.getElementById("pennyFloatingBtn");
+        const win = document.getElementById("pennyFloatingWindow");
+        const closeBtn = document.getElementById("pennyFwCloseBtn");
+        const input = document.getElementById("pennyFwInput");
+        const sendBtn = document.getElementById("pennyFwSendBtn");
+        const body = document.getElementById("pennyFwBody");
+        const suggestions = document.getElementById("pennyFwSuggestions");
+
+        if (!btn || !win || !input || !sendBtn || !body) return;
+
+        let isWaiting = false;
+
+        function toggleWindow() {
+            const isOpen = win.classList.toggle("open");
+            win.setAttribute("aria-hidden", !isOpen);
+            if (isOpen) {
+                setTimeout(() => input.focus(), 150);
+                body.scrollTop = body.scrollHeight;
+            }
+        }
+
+        btn.addEventListener("click", toggleWindow);
+        if (closeBtn) {
+            closeBtn.addEventListener("click", () => {
+                win.classList.remove("open");
+                win.setAttribute("aria-hidden", "true");
+            });
+        }
+
+        // Close on ESC
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape" && win.classList.contains("open")) {
+                win.classList.remove("open");
+                win.setAttribute("aria-hidden", "true");
+            }
+        });
+
+        // Auto-resize input
+        input.addEventListener("input", () => {
+            input.style.height = "auto";
+            input.style.height = Math.min(input.scrollHeight, 80) + "px";
+        });
+
+        // Send on Enter
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener("click", sendMessage);
+
+        // Suggestions chips
+        if (suggestions) {
+            suggestions.addEventListener("click", (e) => {
+                const chip = e.target.closest(".penny-fw-chip");
+                if (chip && !isWaiting) {
+                    input.value = chip.dataset.query || chip.textContent;
+                    suggestions.style.display = "none";
+                    sendMessage();
+                }
+            });
+        }
+
+        function appendMsg(role, text) {
+            const wrap = document.createElement("div");
+            wrap.className = `msg ${role}`;
+
+            if (role === "penny") {
+                const img = document.createElement("img");
+                img.src = "/static/images/penny-avatar.jpg";
+                img.alt = "Penny";
+                img.className = "msg-avatar";
+                wrap.appendChild(img);
+            } else {
+                const av = document.createElement("div");
+                av.className = "msg-avatar-user";
+                av.textContent = (window.USER_NAME || "U")[0].toUpperCase();
+                wrap.appendChild(av);
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = "msg-bubble";
+            bubble.textContent = text;
+            wrap.appendChild(bubble);
+
+            body.appendChild(wrap);
+            body.scrollTop = body.scrollHeight;
+            return wrap;
+        }
+
+        function appendTyping() {
+            const wrap = document.createElement("div");
+            wrap.className = "msg penny";
+            wrap.id = "pennyFwTyping";
+
+            const img = document.createElement("img");
+            img.src = "/static/images/penny-avatar.jpg";
+            img.alt = "Penny";
+            img.className = "msg-avatar";
+            wrap.appendChild(img);
+
+            const bubble = document.createElement("div");
+            bubble.className = "msg-bubble typing-indicator";
+            bubble.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+            wrap.appendChild(bubble);
+
+            body.appendChild(wrap);
+            body.scrollTop = body.scrollHeight;
+            return wrap;
+        }
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text || isWaiting) return;
+
+            if (suggestions) suggestions.style.display = "none";
+
+            appendMsg("user", text);
+            input.value = "";
+            input.style.height = "auto";
+
+            isWaiting = true;
+            sendBtn.disabled = true;
+            const typing = appendTyping();
+
+            try {
+                const res = await fetch("/penny/chat", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": window.CSRF_TOKEN || "",
+                    },
+                    body: JSON.stringify({ message: text }),
+                });
+                const data = await res.json();
+                typing.remove();
+
+                if (data.reply) {
+                    appendMsg("penny", data.reply);
+                } else if (data.error) {
+                    appendMsg("penny", "⚠️ " + data.error);
+                } else {
+                    appendMsg("penny", "🤔 Couldn't get an answer. Please try again!");
+                }
+            } catch (err) {
+                typing.remove();
+                appendMsg("penny", "🌐 Connection issue. Please check your network!");
+            } finally {
+                isWaiting = false;
+                sendBtn.disabled = false;
+                input.focus();
+                body.scrollTop = body.scrollHeight;
+            }
+        }
+    }
+
     // ---- Init all ----
     document.addEventListener("DOMContentLoaded", () => {
         initSidebar();
@@ -407,6 +567,7 @@
         initAmountFormatting();
         initCommandPalette();
         initNetworkStatus();
+        initPennyFloatingWidget();
 
         // Apply theme from body attribute (set by Jinja from user preference)
         const bodyTheme = document.body.dataset.theme;

@@ -254,6 +254,51 @@
     </div>
 </nav>
 
+{% if request.endpoint != 'penny.index' %}
+<!-- Floating Penny AI Assistant Widget (Bottom-Right Bubble & Slide-Up Window) -->
+<button id="pennyFloatingBtn" class="penny-floating-btn" aria-label="Open Penny AI Assistant" title="Chat with Penny AI ✨">
+    <div class="penny-floating-pulse"></div>
+    <img src="{{ url_for('static', filename='images/penny-avatar.jpg') }}" alt="Penny AI">
+</button>
+
+<div id="pennyFloatingWindow" class="penny-floating-window" role="dialog" aria-label="Penny AI Chat" aria-hidden="true">
+    <div class="penny-fw-header">
+        <div class="penny-fw-profile">
+            <img src="{{ url_for('static', filename='images/penny-avatar.jpg') }}" alt="Penny">
+            <div>
+                <h4>Penny AI ✨</h4>
+                <span><span style="color:#00e676;font-size:0.6rem;">●</span> Financial Assistant</span>
+            </div>
+        </div>
+        <div class="penny-fw-actions">
+            <a href="{{ url_for('penny.index') }}" class="penny-fw-btn" title="Open full-page chat" aria-label="Expand to full screen">⛶</a>
+            <button id="pennyFwCloseBtn" class="penny-fw-btn" aria-label="Close Penny chat" title="Minimize">✕</button>
+        </div>
+    </div>
+
+    <div class="penny-fw-body" id="pennyFwBody">
+        <div class="msg penny">
+            <img src="{{ url_for('static', filename='images/penny-avatar.jpg') }}" alt="Penny" class="msg-avatar">
+            <div class="msg-bubble">
+                Hi {{ current_user.name.split()[0] }}! 👋 I'm Penny. Ask me about your spending, budgets, or savings goals!
+            </div>
+        </div>
+    </div>
+
+    <div class="penny-fw-suggestions" id="pennyFwSuggestions">
+        <button type="button" class="penny-fw-chip" data-query="How much did I spend this month?">How much did I spend this month?</button>
+        <button type="button" class="penny-fw-chip" data-query="Budget status?">Budget status?</button>
+        <button type="button" class="penny-fw-chip" data-query="Give me a spending summary">Summary</button>
+        <button type="button" class="penny-fw-chip" data-query="How are my savings goals doing?">Savings goals</button>
+    </div>
+
+    <div class="penny-fw-footer">
+        <textarea id="pennyFwInput" class="penny-fw-input" placeholder="Ask Penny anything…" rows="1" maxlength="1000"></textarea>
+        <button type="button" id="pennyFwSendBtn" class="penny-fw-send" aria-label="Send message">➤</button>
+    </div>
+</div>
+{% endif %}
+
 {% else %}
 <!-- UNAUTHENTICATED LAYOUT -->
 {% with messages = get_flashed_messages(with_categories=True) %}
@@ -345,6 +390,8 @@
 <script>
     window.USER_CURRENCY_SYMBOL = "{{ current_user.currency_symbol if current_user.is_authenticated else '₹' }}";
     window.USER_CURRENCY = "{{ current_user.currency if current_user.is_authenticated else 'INR' }}";
+    window.CSRF_TOKEN = "{{ csrf_token() }}";
+    window.USER_NAME = "{{ current_user.name.split()[0] if current_user.is_authenticated else 'User' }}";
 </script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% block scripts %}{% endblock %}

@@ -49,34 +49,97 @@ USER FINANCIAL DATA:
 {context}
 """
 
-FALLBACK_RESPONSES = [
-    (
-        "Hey! I'm Penny 👋 I'm your personal finance assistant. It looks like my AI brain isn't "
-        "connected right now (missing API key), but I can still see your financial data. "
-        "Ask your admin to add the GEMINI_API_KEY to get full AI responses!"
-    ),
-    (
-        "Penny here! 🌟 I'm warming up — the AI engine needs a GEMINI_API_KEY to be configured. "
-        "Once that's set, I'll be able to answer all your finance questions with real insights "
-        "from your data!"
-    ),
-]
+def _smart_fallback(user_message: str, context: str, user_name: str) -> str:
+    """
+    Intelligent rule-based responses derived from the user's real database context
+    when no GEMINI_API_KEY is configured. Ensures Penny can answer real data queries!
+    """
+    msg = user_message.lower().strip()
 
-_fallback_index = 0
+    # Extract sections from context
+    sections = {}
+    current_sec = "header"
+    sections[current_sec] = []
+    for line in context.splitlines():
+        if line.startswith("===") and line.endswith("==="):
+            current_sec = line.strip("= ").lower()
+            sections[current_sec] = []
+        else:
+            if line.strip():
+                sections[current_sec].append(line.strip())
+
+    # 1. Spending queries ("how much did i spend", "expenses", "spent", "spending")
+    if any(k in msg for k in ["spend", "spent", "spending", "expense", "cost"]):
+        this_month = sections.get("this month", [])
+        top_cats = sections.get("top spending categories (last 90 days)", [])
+        reply = [f"Hey {user_name}! 💸 Here is what your spending looks like:"]
+        for line in this_month:
+            reply.append(f"• {line}")
+        if top_cats and top_cats[0] != "No expenses recorded in the last 90 days.":
+            reply.append(f"\nYour highest spending category recently is {top_cats[0]}.")
+        reply.append("\n💡 (Add a GEMINI_API_KEY to ask more complex financial questions!)")
+        return "\n".join(reply)
+
+    # 2. Budget queries ("budget", "over budget", "limit", "exceeded")
+    if any(k in msg for k in ["budget", "limit", "overspend", "near"]):
+        budgets = sections.get("monthly budgets", [])
+        if budgets:
+            reply = [f"Here is your budget health, {user_name}: 🎯"]
+            for b in budgets:
+                reply.append(f"• {b}")
+            return "\n".join(reply)
+        return f"Hey {user_name}, you haven't set any category budgets yet! 🎯 Head to the Budgets tab to set monthly limits and stay in control."
+
+    # 3. Savings queries ("saving", "goal", "vault", "target")
+    if any(k in msg for k in ["saving", "savings", "goal", "vault", "target"]):
+        savings = sections.get("savings goals", [])
+        if savings:
+            reply = [f"Here is how your savings vaults are tracking, {user_name}: 🏦"]
+            for s in savings:
+                reply.append(f"• {s}")
+            return "\n".join(reply)
+        return f"Hey {user_name}, you haven't created any savings goals yet! 🏦 Start a goal in Savings Goals to track progress toward a big milestone."
+
+    # 4. Summary / Overview queries
+    if any(k in msg for k in ["summary", "overview", "report", "insights", "how am i doing", "status"]):
+        this_month = sections.get("this month", [])
+        top_cats = sections.get("top spending categories (last 90 days)", [])
+        budgets = sections.get("monthly budgets", [])
+        savings = sections.get("savings goals", [])
+        reply = [f"📊 Financial Summary for {user_name}:"]
+        if this_month:
+            for line in this_month:
+                reply.append(f"  {line}")
+        if top_cats and top_cats[0] != "No expenses recorded in the last 90 days.":
+            reply.append(f"\nTop Category: {top_cats[0]}")
+        if budgets:
+            reply.append(f"Active Budgets: {len(budgets)} tracked")
+        if savings:
+            reply.append(f"Savings Goals: {len(savings)} active")
+        return "\n".join(reply)
+
+    # 5. Default greeting & fallback
+    this_month = sections.get("this month", [])
+    spent_str = this_month[0] if this_month else "No spending recorded"
+    return (
+        f"Hey {user_name}! 👋 I'm Penny, your personal finance assistant.\n\n"
+        f"Right now I can see your live financial data ({spent_str}). You can ask me:\n"
+        f"• 'How much did I spend this month?'\n"
+        f"• 'How are my budgets doing?'\n"
+        f"• 'Give me a spending summary'\n"
+        f"• 'Show my savings goals'\n\n"
+        f"✨ To unlock free-form conversational AI reasoning, set the GEMINI_API_KEY in your environment!"
+    )
 
 
 def _get_gemini_response(user_message: str, context: str, user_name: str) -> str:
     """
     Call Google Gemini API and return the assistant's reply.
-    Returns a fallback message if the API key is missing or any error occurs.
+    Falls back gracefully to smart rule-based DB responses if the API key is not set.
     """
-    global _fallback_index
-
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
-        response = FALLBACK_RESPONSES[_fallback_index % len(FALLBACK_RESPONSES)]
-        _fallback_index += 1
-        return response
+        return _smart_fallback(user_message, context, user_name)
 
     try:
         import google.generativeai as genai
@@ -95,12 +158,11 @@ def _get_gemini_response(user_message: str, context: str, user_name: str) -> str
         )
         return response.text.strip()
     except ImportError:
-        return "⚠️ Penny's AI engine isn't installed yet. Run `pip install google-generativeai` to enable it."
+        return _smart_fallback(user_message, context, user_name)
     except Exception as e:
         error_msg = str(e)
-        # Hide internal errors from users
         if "API_KEY" in error_msg.upper() or "INVALID" in error_msg.upper():
-            return "🔑 Penny's API key seems invalid. Please check the GEMINI_API_KEY configuration."
+            return _smart_fallback(user_message, context, user_name)
         return f"🤔 I ran into a small hiccup. Please try again in a moment! (Error: {error_msg[:80]})"
 
 
