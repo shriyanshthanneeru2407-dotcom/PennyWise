@@ -77,7 +77,6 @@ def _smart_fallback(user_message: str, context: str, user_name: str) -> str:
             reply.append(f"• {line}")
         if top_cats and top_cats[0] != "No expenses recorded in the last 90 days.":
             reply.append(f"\nYour highest spending category recently is {top_cats[0]}.")
-        reply.append("\n💡 (Add a GEMINI_API_KEY to ask more complex financial questions!)")
         return "\n".join(reply)
 
     # 2. Budget queries ("budget", "over budget", "limit", "exceeded")
@@ -123,45 +122,49 @@ def _smart_fallback(user_message: str, context: str, user_name: str) -> str:
     spent_str = this_month[0] if this_month else "No spending recorded"
     return (
         f"Hey {user_name}! 👋 I'm Penny, your personal finance assistant.\n\n"
-        f"Right now I can see your live financial data ({spent_str}). You can ask me:\n"
+        f"I have direct access to your live finances ({spent_str}). Feel free to ask me:\n"
         f"• 'How much did I spend this month?'\n"
         f"• 'How are my budgets doing?'\n"
         f"• 'Give me a spending summary'\n"
-        f"• 'Show my savings goals'\n\n"
-        f"✨ To unlock free-form conversational AI reasoning, set the GEMINI_API_KEY in your environment!"
+        f"• 'Show my savings goals'"
     )
 
 
 def _call_gemini_rest(prompt: str, system_instruction: str, api_key: str) -> str:
     """
-    Direct HTTPS REST call to Google Generative Language API (Gemini 3.8 Flash).
-    Fast, lightweight, sub-second timeout to avoid serverless function latency.
+    Direct HTTPS REST call to Google Generative Language API.
+    Tries gemini-3.5-flash and gemini-3.6-flash for sub-second, resilient responses.
     """
     import urllib.request
     import json
 
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={api_key}"
-        payload = {
-            "system_instruction": {"parts": [{"text": system_instruction}]},
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 350},
-        }
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=3.5) as response:
-            result = json.loads(response.read().decode("utf-8"))
-            candidates = result.get("candidates", [])
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts and parts[0].get("text"):
-                    return parts[0].get("text", "").strip()
-    except Exception:
-        pass
+    models = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.8-flash"]
+    payload = {
+        "system_instruction": {"parts": [{"text": system_instruction}]},
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 400},
+    }
+    data_bytes = json.dumps(payload).encode("utf-8")
+
+    for model in models:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            req = urllib.request.Request(
+                url,
+                data=data_bytes,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5.0) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                candidates = result.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    texts = [p.get("text", "") for p in parts if p.get("text")]
+                    if texts:
+                        return "".join(texts).strip()
+        except Exception:
+            continue
     return ""
 
 
