@@ -57,14 +57,6 @@
                 <span class="nav-icon" aria-hidden="true">🏠</span>
                 Dashboard
             </a>
-            <a href="{{ url_for('penny.index') }}"
-               class="nav-item {% if request.endpoint and request.endpoint.startswith('penny') %}active{% endif %}"
-               style="background: linear-gradient(90deg, rgba(99,102,241,0.12), transparent); border-left: 2px solid #818cf8; margin-top: 4px;">
-                <span class="nav-icon" aria-hidden="true" style="display:inline-flex;align-items:center;">
-                    <img src="{{ url_for('static', filename='images/penny-avatar.jpg') }}" alt="Penny" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #818cf8;box-shadow: 0 0 6px rgba(129,140,248,0.5);">
-                </span>
-                <span style="font-weight:600;background:linear-gradient(135deg,#818cf8,#c084fc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Ask Penny ✨</span>
-            </a>
         </div>
 
         <div class="nav-section">
@@ -254,51 +246,6 @@
     </div>
 </nav>
 
-{% if request.endpoint != 'penny.index' %}
-<!-- Floating Penny AI Assistant Widget (Bottom-Right Bubble & Slide-Up Window) -->
-<button id="pennyFloatingBtn" class="penny-floating-btn" aria-label="Open Penny AI Assistant" title="Chat with Penny AI ✨">
-    <div class="penny-floating-pulse"></div>
-    <img src="{{ url_for('static', filename='images/penny-avatar.jpg') }}" alt="Penny AI">
-</button>
-
-<div id="pennyFloatingWindow" class="penny-floating-window" role="dialog" aria-label="Penny AI Chat" aria-hidden="true">
-    <div class="penny-fw-header">
-        <div class="penny-fw-profile">
-            <img src="{{ url_for('static', filename='images/penny-avatar.jpg') }}" alt="Penny">
-            <div>
-                <h4>Penny AI ✨</h4>
-                <span><span style="color:#00e676;font-size:0.6rem;">●</span> Financial Assistant</span>
-            </div>
-        </div>
-        <div class="penny-fw-actions">
-            <a href="{{ url_for('penny.index') }}" class="penny-fw-btn" title="Open full-page chat" aria-label="Expand to full screen">⛶</a>
-            <button id="pennyFwCloseBtn" class="penny-fw-btn" aria-label="Close Penny chat" title="Minimize">✕</button>
-        </div>
-    </div>
-
-    <div class="penny-fw-body" id="pennyFwBody">
-        <div class="msg penny">
-            <img src="{{ url_for('static', filename='images/penny-avatar.jpg') }}" alt="Penny" class="msg-avatar">
-            <div class="msg-bubble">
-                Hi {{ current_user.name.split()[0] }}! 👋 I'm Penny. Ask me about your spending, budgets, or savings goals!
-            </div>
-        </div>
-    </div>
-
-    <div class="penny-fw-suggestions" id="pennyFwSuggestions">
-        <button type="button" class="penny-fw-chip" data-query="How much did I spend this month?">How much did I spend this month?</button>
-        <button type="button" class="penny-fw-chip" data-query="Budget status?">Budget status?</button>
-        <button type="button" class="penny-fw-chip" data-query="Give me a spending summary">Summary</button>
-        <button type="button" class="penny-fw-chip" data-query="How are my savings goals doing?">Savings goals</button>
-    </div>
-
-    <div class="penny-fw-footer">
-        <textarea id="pennyFwInput" class="penny-fw-input" placeholder="Ask Penny anything…" rows="1" maxlength="1000"></textarea>
-        <button type="button" id="pennyFwSendBtn" class="penny-fw-send" aria-label="Send message">➤</button>
-    </div>
-</div>
-{% endif %}
-
 {% else %}
 <!-- UNAUTHENTICATED LAYOUT -->
 {% with messages = get_flashed_messages(with_categories=True) %}
@@ -343,7 +290,6 @@
             <input type="text" id="commandPaletteInput" class="command-palette-input" placeholder="Type a command or jump to page... (ESC to close)" autocomplete="off">
         </div>
         <ul class="command-palette-list" id="commandPaletteList">
-            <li><a href="{{ url_for('penny.index') }}" class="command-palette-item" data-title="Ask Penny AI Assistant Chat Financial Insights Advisor"><span>✨ Ask Penny (AI)</span> <kbd class="text-xs text-muted">A</kbd></a></li>
             <li><a href="{{ url_for('expenses.new') }}" class="command-palette-item" data-title="Add Transaction New Expense Income"><span>➕ Add Transaction</span> <kbd class="text-xs text-muted">N</kbd></a></li>
             <li><a href="{{ url_for('dashboard.index') }}" class="command-palette-item" data-title="Dashboard Overview Home"><span>🏠 Dashboard</span> <kbd class="text-xs text-muted">D</kbd></a></li>
             <li><a href="{{ url_for('expenses.index') }}" class="command-palette-item" data-title="Transactions Expenses Income Ledger"><span>💳 All Transactions</span> <kbd class="text-xs text-muted">T</kbd></a></li>
