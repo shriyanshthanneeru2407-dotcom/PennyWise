@@ -132,38 +132,69 @@ def _smart_fallback(user_message: str, context: str, user_name: str) -> str:
     )
 
 
+def _call_gemini_rest(prompt: str, system_instruction: str, api_key: str) -> str:
+    """
+    Direct HTTPS REST call to Google Generative Language API (Gemini 3.8 Flash).
+    Ultra-lightweight, avoids gRPC connection hangs on serverless runtimes.
+    """
+    import urllib.request
+    import json
+
+    # Try contemporary models in preference order
+    for model_name in ["gemini-3.8-flash", "gemini-flash-latest"]:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            payload = {
+                "system_instruction": {"parts": [{"text": system_instruction}]},
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.7, "maxOutputTokens": 512},
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                result = json.loads(response.read().decode("utf-8"))
+                candidates = result.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts and parts[0].get("text"):
+                        return parts[0].get("text", "").strip()
+        except Exception:
+            continue
+    return ""
+
+
 def _get_gemini_response(user_message: str, context: str, user_name: str) -> str:
     """
     Call Google Gemini API and return the assistant's reply.
-    Falls back gracefully to smart rule-based DB responses if the API key is not set.
+    Falls back gracefully to smart rule-based DB responses if the API key is not set or times out.
     """
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         return _smart_fallback(user_message, context, user_name)
 
+    # 1. Try high-speed direct REST call first
+    try:
+        reply = _call_gemini_rest(
+            user_message, PENNY_SYSTEM_PROMPT.format(context=context), api_key
+        )
+        if reply:
+            return reply
+    except Exception:
+        pass
+
+    # 2. Try google.generativeai SDK as secondary option
     try:
         import google.generativeai as genai
 
         genai.configure(api_key=api_key)
-        
-        # Try contemporary Gemini models in preference order
-        model = None
-        for candidate in ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-flash-latest"]:
-            try:
-                model = genai.GenerativeModel(
-                    model_name=candidate,
-                    system_instruction=PENNY_SYSTEM_PROMPT.format(context=context),
-                )
-                break
-            except Exception:
-                continue
-
-        if not model:
-            model = genai.GenerativeModel(
-                model_name="gemini-3.8-flash",
-                system_instruction=PENNY_SYSTEM_PROMPT.format(context=context),
-            )
-
+        model = genai.GenerativeModel(
+            model_name="gemini-3.8-flash",
+            system_instruction=PENNY_SYSTEM_PROMPT.format(context=context),
+        )
         response = model.generate_content(
             user_message,
             generation_config=genai.types.GenerationConfig(
@@ -171,12 +202,13 @@ def _get_gemini_response(user_message: str, context: str, user_name: str) -> str
                 max_output_tokens=512,
             ),
         )
-        return response.text.strip()
-    except ImportError:
-        return _smart_fallback(user_message, context, user_name)
-    except Exception as e:
-        error_msg = str(e)
-        return _smart_fallback(user_message, context, user_name)
+        if response and response.text:
+            return response.text.strip()
+    except Exception:
+        pass
+
+    # 3. Always return real data via smart fallback if AI call fails
+    return _smart_fallback(user_message, context, user_name)
 
 
 @penny_bp.route("/")
