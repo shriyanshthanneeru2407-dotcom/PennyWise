@@ -13,6 +13,25 @@ ENV/
 
 # Environment secrets — NEVER commit these
 .env
+.env.*
+.vercelignore
+
+# Media and video render artifacts
+*.mp4
+*.webm
+*.mp3
+*_video/
+voiceover_segments/
+part_*.mp4
+app_processed.mp4
+intro_processed.mp4
+video_no_audio.mp4
+concat_list.txt
+intro.html
+record_*.py
+build_*.py
+create_*.py
+assemble_*.py
 
 # Flask instance folder (SQLite database + local uploads)
 instance/
